@@ -4,6 +4,7 @@ use std::{path::Iter, str::Chars};
 enum Word {
     Push(u32),
     Plus,
+    Sub,
     Print,
     Dup,
     Branch
@@ -11,6 +12,7 @@ enum Word {
 
 fn run(progam: Vec<Word>) {
     let mut int_stack = vec!();
+    let mut ret_stack: Vec<usize> = vec!();
 
     for word in progam {
         match word {
@@ -20,7 +22,16 @@ fn run(progam: Vec<Word>) {
                 if int_stack.len() >= 2 {
                     let x = int_stack.pop().unwrap();
                     let y = int_stack.pop().unwrap();
-                    int_stack.push(x + y)
+                    int_stack.push(x.saturating_add(y))
+                } else {
+                    panic!("OOB");
+                }
+            },
+            Word::Sub => {
+                if int_stack.len() >= 2 {
+                    let x = int_stack.pop().unwrap();
+                    let y = int_stack.pop().unwrap();
+                    int_stack.push(x.saturating_sub(y))
                 } else {
                     panic!("OOB");
                 }
@@ -64,6 +75,7 @@ impl Iterator for CodeStream<'_> {
         match chunk.as_str() {
             "print" => Some(Word::Print),
             "+" | "plus" => Some(Word::Plus),
+            "-" | "sub" => Some(Word::Sub),
             "dup" => Some(Word::Dup),
             _ => None
         }
