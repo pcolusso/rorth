@@ -1,101 +1,81 @@
-use std::{path::Iter, str::Chars, fmt};
+use std::{path::Iter, str::Chars, fmt, collections::HashMap};
 
-enum Word {
-    Push(u32),
-    Plus,
-    Print,
-    Dup,
-    Bye,
-    Branch
+type Program = Vec<Word>;
+type Dictionary = HashMap<String, Word>;
+type NativeOp = fn(&mut Machine);
+
+enum Op {
+    Native(NativeOp),
+    Interpreted(Program),
+    Push(u32)
 }
 
-impl fmt::Display for Word {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Word::Push(x) => write!(f, "↑ {}", x),
-            Word::Plus => write!(f, "+"),
-            Word::Print => write!(f, "↓ "),
-            Word::Bye => write!(f, "ⓧ"),
-            Word::Dup => write!(f, "x2"),
-            Word::Branch => write!(f, " ⑂")
-        }
+struct Machine {
+    int_stack: Vec<u32>,
+    dictionary: Dictionary
+}
+
+impl Machine {
+    fn new() -> Self {
+        let mut dictionary = HashMap::new();
+
+        dictionary.insert(".".into(),   Word { name: "Print".into(), op: Op::Native(print)});
+        dictionary.insert("bye".into(), Word { name: "Exit".into(),  op: Op::Native(bye)});
+        dictionary.insert("+".into(),   Word { name: "Add".into(),   op: Op::Native(plus)});
+        dictionary.insert("dup".into(), Word { name: "Double".into(), op: Op::Native(double)});
+
+        let int_stack = vec!();
+        Self { int_stack, dictionary }
     }
-}
 
-fn run(progam: Vec<Word>) {
-    let mut int_stack = vec!();
-
-    for word in progam {
-        match word {
-            Word::Push(x) => int_stack.push(x),
-            Word::Print => println!("{:#?}", int_stack.pop()),
-            Word::Plus => {
-                if int_stack.len() >= 2 {
-                    let x = int_stack.pop().unwrap();
-                    let y = int_stack.pop().unwrap();
-                    int_stack.push(x + y)
-                } else {
-                    panic!("OOB");
+    fn run(&mut self, input: &str) {
+        for command in input.split_whitespace() {
+            match self.dictionary.get(command) {
+                Some(word) => match &word.op {
+                    Op::Interpreted(program) => unimplemented!(),
+                    Op::Native(func) => func(self),
+                    Op::Push(_) => unimplemented!()
                 }
-            },
-            Word::Dup => {
-                if let Some(x) = int_stack.pop() {
-                    int_stack.push(x + x);
+                None => {
+                    if let Ok(x) = command.parse::<u32>() {
+                        self.int_stack.push(x)
+                    } else {
+                        panic!("Cannot interpret {}", command)
+                    }
                 }
-            },
-            Word::Bye => { std::process::exit(0); }
-            Word::Branch => {},
-        }
-    }
-}
-
-struct CodeStream<'a> {
-    input: Chars<'a>
-}
-
-impl Iterator for CodeStream<'_> {
-    type Item = Word;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut buf = vec!();
-        
-        // Get a word
-        loop {
-            let char = self.input.next();
-
-            match char {
-                None | Some(' ') => break,
-                Some(x) => buf.push(x)
             }
         }
-
-        let chunk: String = buf.into_iter().collect();
-
-        if let Ok(x) = chunk.parse::<u32>() {
-            return Some(Word::Push(x));
-        }
-
-        match chunk.as_str() {
-            "print" | "." => Some(Word::Print),
-            "+" | "plus" => Some(Word::Plus),
-            "bye" => Some(Word::Bye),
-            "dup" => Some(Word::Dup),
-            _ => None
-        }
     }
+}
 
+struct Word {
+    name: String,
+    op: Op
+}
+
+fn print(machine: &mut Machine) {
+    let x = machine.int_stack.pop().unwrap();
+    println!("{}", x);
+}
+
+fn bye(_: &mut Machine) {
+    std::process::exit(0);
+}
+
+fn plus(machine: &mut Machine) {
+    let x = machine.int_stack.pop().unwrap();
+    let y = machine.int_stack.pop().unwrap();
+    machine.int_stack.push(x.saturating_add(y));
+}
+
+fn double(machine: &mut Machine) {
+    let x= machine.int_stack.pop().unwrap();
+    machine.int_stack.push(x.saturating_add(x));
 }
 
 fn main() {
     let input = "10 dup 20 + . bye";
-    let program: Vec<Word> = CodeStream{input: input.chars()}.into_iter().collect();
+    let mut machine = Machine::new();
 
-    for w in &program {
-        print!("{} ", w);
-    }
-    println!("");
-    
-    run(program);
-
-    println!("Hello, world!");
+    machine.run(input);
 }
