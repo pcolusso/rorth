@@ -1,12 +1,25 @@
-use std::{path::Iter, str::Chars};
+use std::{path::Iter, str::Chars, fmt};
 
-#[derive(Debug)]
 enum Word {
     Push(u32),
     Plus,
     Print,
     Dup,
+    Bye,
     Branch
+}
+
+impl fmt::Display for Word {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Word::Push(x) => write!(f, "↑ {}", x),
+            Word::Plus => write!(f, "+"),
+            Word::Print => write!(f, "↓ "),
+            Word::Bye => write!(f, "ⓧ"),
+            Word::Dup => write!(f, "x2"),
+            Word::Branch => write!(f, " ⑂")
+        }
+    }
 }
 
 fn run(progam: Vec<Word>) {
@@ -15,7 +28,7 @@ fn run(progam: Vec<Word>) {
     for word in progam {
         match word {
             Word::Push(x) => int_stack.push(x),
-            Word::Print => println!("{:#?}", int_stack.last()),
+            Word::Print => println!("{:#?}", int_stack.pop()),
             Word::Plus => {
                 if int_stack.len() >= 2 {
                     let x = int_stack.pop().unwrap();
@@ -30,6 +43,7 @@ fn run(progam: Vec<Word>) {
                     int_stack.push(x + x);
                 }
             },
+            Word::Bye => { std::process::exit(0); }
             Word::Branch => {},
         }
     }
@@ -62,8 +76,9 @@ impl Iterator for CodeStream<'_> {
         }
 
         match chunk.as_str() {
-            "print" => Some(Word::Print),
+            "print" | "." => Some(Word::Print),
             "+" | "plus" => Some(Word::Plus),
+            "bye" => Some(Word::Bye),
             "dup" => Some(Word::Dup),
             _ => None
         }
@@ -72,14 +87,15 @@ impl Iterator for CodeStream<'_> {
 }
 
 fn main() {
-    let input = "12 dup 32 + print";
+    let input = "10 dup 20 + . bye";
     let program: Vec<Word> = CodeStream{input: input.chars()}.into_iter().collect();
 
-    println!("{:#?}", program);
+    for w in &program {
+        print!("{} ", w);
+    }
+    println!("");
     
     run(program);
-
-
 
     println!("Hello, world!");
 }
