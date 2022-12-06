@@ -1,4 +1,7 @@
-use std::{path::Iter, str::Chars, fmt, collections::HashMap};
+use std::collections::HashMap;
+use std::io::BufRead;
+
+mod ops;
 
 type Program = Vec<Word>;
 type Dictionary = HashMap<String, Word>;
@@ -10,7 +13,7 @@ enum Op {
     Push(u32)
 }
 
-struct Machine {
+pub struct Machine {
     int_stack: Vec<u32>,
     dictionary: Dictionary
 }
@@ -19,10 +22,11 @@ impl Machine {
     fn new() -> Self {
         let mut dictionary = HashMap::new();
 
-        dictionary.insert(".".into(),   Word { name: "Print".into(), op: Op::Native(print)});
-        dictionary.insert("bye".into(), Word { name: "Exit".into(),  op: Op::Native(bye)});
-        dictionary.insert("+".into(),   Word { name: "Add".into(),   op: Op::Native(plus)});
-        dictionary.insert("dup".into(), Word { name: "Double".into(), op: Op::Native(double)});
+        dictionary.insert(".".into(),   Word { name: "Print".into(),  op: Op::Native(ops::print)});
+        dictionary.insert("bye".into(), Word { name: "Exit".into(),   op: Op::Native(ops::bye)});
+        dictionary.insert("+".into(),   Word { name: "Add".into(),    op: Op::Native(ops::plus)});
+        dictionary.insert("dup".into(), Word { name: "Double".into(), op: Op::Native(ops::double)});
+        dictionary.insert("?".into(), Word { name: "Inspect".into(), op: Op::Native(ops::inspect)});
 
         let int_stack = vec!();
         Self { int_stack, dictionary }
@@ -53,29 +57,31 @@ struct Word {
     op: Op
 }
 
-fn print(machine: &mut Machine) {
-    let x = machine.int_stack.pop().unwrap();
-    println!("{}", x);
-}
-
-fn bye(_: &mut Machine) {
-    std::process::exit(0);
-}
-
-fn plus(machine: &mut Machine) {
-    let x = machine.int_stack.pop().unwrap();
-    let y = machine.int_stack.pop().unwrap();
-    machine.int_stack.push(x.saturating_add(y));
-}
-
-fn double(machine: &mut Machine) {
-    let x= machine.int_stack.pop().unwrap();
-    machine.int_stack.push(x.saturating_add(x));
-}
-
 fn main() {
-    let input = "10 dup 20 + . bye";
+    let mut args: Vec<String> = std::env::args().collect();
     let mut machine = Machine::new();
 
-    machine.run(input);
+    let _ = args.drain(0..1);
+
+    if let Some(filename) = args.pop() {
+        if let Ok(file) = std::fs::File::open(filename) {
+            let reader = std::io::BufReader::new(file);
+            
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    machine.run(&line);
+                }
+            }
+        }
+    } else {
+        let stdin = std::io::stdin();
+
+        for line in stdin.lock().lines() {
+            if let Ok(line) = line {
+                machine.run(&line);
+            }
+        }
+    }
+
+    
 }
